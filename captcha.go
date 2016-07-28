@@ -21,15 +21,6 @@ type Captcha struct {
 	size        image.Point
 }
 
-type StrType int
-
-const (
-	NUM   StrType = 0 // 数字
-	LOWER         = 1 // 小写字母
-	UPPER         = 2 // 大写字母
-	ALL           = 3 // 全部
-)
-
 type DisturLevel int
 
 const (
@@ -65,7 +56,7 @@ func (c *Captcha) AddFont(path string) error {
 	return nil
 }
 
-func (c *Captcha) RandFont() *truetype.Font {
+func (c *Captcha) randFont() *truetype.Font {
 	return c.fonts[rand.Intn(len(c.fonts))]
 }
 
@@ -105,11 +96,6 @@ func (c *Captcha) SetSize(w, h int) {
 
 // 绘制背景
 func (c *Captcha) drawBkg(img *Image) {
-	//ra := rand.New(rand.NewSource(time.Now().UnixNano()))
-	// 填充主背景色
-	//bgcolorindex := ra.Intn(len(c.bkgColors))
-	//bkg := image.NewUniform(c.bkgColors[bgcolorindex])
-	//img.FillBkg(bkg)
 	img.FillNoiseBkg(c.bkgColors)
 }
 
@@ -152,27 +138,27 @@ func (c *Captcha) drawString(img *Image, str string) {
 	// 用于生成随机角度
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	// 文字之间的距离
-	gap := size.X/(len(str)+1) - fsize/6
+	gap := size.X/len(str) - fsize/6
 	// 文字在图形上的起点
 	offset_y := int(float64(size.Y) * 0.2)
-	offset_x := size.X/(len(str)+1)
+	offset_x := size.X / (len(str) + 1)
 
 	// 逐个绘制文字到图片上
 	for i, char := range str {
 		// 创建单个文字图片
 		// 以高为尺寸创建正方形的图形
-		str := NewImage(size.Y, size.Y)
+		strImg := NewImage(size.Y, size.Y)
 		// 随机取一个前景色
 		colorindex := r.Intn(len(c.frontColors))
-		
+
 		//随机取一个字体
-		font := c.RandFont()
-		str.DrawString(font, c.frontColors[colorindex], string(char), float64(fsize), offset_x, offset_y)
+		font := c.randFont()
+		strImg.DrawString(font, c.frontColors[colorindex], string(char), float64(fsize), offset_x, offset_y)
 
 		// 转换角度后的文字图形
 
 		//println(r.Float64())
-		rs := str.Rotate(float64(r.Intn(60) - 30))
+		rs := strImg.Rotate(float64(r.Intn(60) - 30))
 		s := rs.Bounds().Size()
 		// 计算文字位置
 		left := i*gap - (s.X - size.Y)
@@ -183,46 +169,17 @@ func (c *Captcha) drawString(img *Image, str string) {
 	}
 }
 
-// Create 生成一个验证码图片
-func (c *Captcha) Create(num int, t StrType) (*Image, string) {
-	if num <= 0 {
-		num = 4
-	}
-	dst := NewImage(c.size.X, c.size.Y)
-	tmp := NewImage(c.size.X, c.size.Y)
-	c.drawBkg(dst)
-	c.drawNoises(tmp);
-	str := string(c.randStr(num, int(t)))
-	c.drawString(tmp, str)
-	tmp.distortTo(dst,(4.0+rand.Float64()*4.0), (100.0+rand.Float64()*100.0))
-	return dst, str
-}
-
-func (c *Captcha) CreateCustom(str string) *Image {
+func (c *Captcha) CreateImage(str string) *Image {
 	if len(str) == 0 {
 		str = "unkown"
 	}
 	dst := NewImage(c.size.X, c.size.Y)
+	tmp := NewImage(c.size.X, c.size.Y)
 	c.drawBkg(dst)
-	c.drawNoises(dst);
-	c.drawString(dst, str)
+	c.drawNoises(tmp)
+	c.drawString(tmp, str)
+	tmp.distortTo(dst, (3.0 + rand.Float64()*3.0), (70.0 + rand.Float64()*70.0))
 	return dst
 }
 
 var fontKinds = [][]int{[]int{10, 48}, []int{26, 97}, []int{26, 65}}
-
-// 生成随机字符串
-// size 个数 kind 模式
-func (c *Captcha) randStr(size int, kind int) []byte {
-	ikind, result := kind, make([]byte, size)
-	isAll := kind > 2 || kind < 0
-	rand.Seed(time.Now().UnixNano())
-	for i := 0; i < size; i++ {
-		if isAll {
-			ikind = rand.Intn(3)
-		}
-		scope, base := fontKinds[ikind][0], fontKinds[ikind][1]
-		result[i] = uint8(base + rand.Intn(scope))
-	}
-	return result
-}

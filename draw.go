@@ -1,12 +1,16 @@
 package captcha
 
 import (
+	"bytes"
+	_ "fmt"
 	"image"
 	"image/color"
 	"image/draw"
+	"image/png"
+	"io"
 	"math"
 	"math/rand"
-	_ "fmt"
+
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
 )
@@ -277,10 +281,24 @@ func (m *Image) distortTo(targetImg *Image, amplude float64, period float64) {
 			xo := amplude * math.Sin(float64(y)*dx)
 			yo := amplude * math.Cos(float64(x)*dx)
 			rgba := oldm.RGBAAt(x+int(xo), y+int(yo))
-			if rgba.A>0 {
+			if rgba.A > 0 {
 				targetImg.RGBA.SetRGBA(x, y, rgba)
 			}
 		}
 	}
 	//m.RGBA = newm
+}
+
+func (m *Image) encodedPNG() []byte {
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, m.RGBA); err != nil {
+		panic(err.Error())
+	}
+	return buf.Bytes()
+}
+
+// WriteTo writes captcha image in PNG format into the given writer.
+func (m *Image) WriteTo(w io.Writer) (int64, error) {
+	n, err := w.Write(m.encodedPNG())
+	return int64(n), err
 }
